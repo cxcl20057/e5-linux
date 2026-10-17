@@ -193,7 +193,7 @@ new_groups = '''var GROUPS = [
 		{ cmd: 'AT+CIMI', desc: '读取 SIM 卡的 IMSI 标识' },
 		{ cmd: 'AT+CGSN', desc: '读取模组 IMEI（15 位国际移动设备识别码）' },
 		{ cmd: 'AT+CNUM', desc: '查询本机号码（需运营商写入 SIM）' },
-		{ cmd: 'AT+SPIMEI=0,"869470071557511"', desc: '设置卡槽 0 的 IMEI 为 869470071557511（写入 NV 持久保存）' },
+		{ cmd: 'AT+SPIMEI=0,"改为你的串号"', desc: '设置卡槽 0 的 IMEI（写入 NV 持久保存），先改成你自己的串号再发送' },
 		{ cmd: 'AT+SPIMEI?', desc: '查询当前已写入的 IMEI（含两个卡槽的 IMEI）' }
 	] ],
 	[ '注册/信号', [
