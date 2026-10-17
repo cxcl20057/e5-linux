@@ -248,6 +248,37 @@ else:
 PYEOF
 fi
 
+# ---- 修改 chip 和历史点击行为：只填入不自动发送 ----
+if grep -q 'SPIMEI' "$F_AT" 2>/dev/null; then
+    python3 - "$F_AT" <<'PYEOF'
+import sys
+path = sys.argv[1]
+src = open(path, 'r').read()
+
+changed = False
+
+# chip 点击：self.send() -> self.Q('at-cmd').focus()
+old_chip = "ch.onclick = function() { self.Q('at-cmd').value = ch.textContent; self.send(); };"
+new_chip = "ch.onclick = function() { self.Q('at-cmd').value = ch.textContent; self.Q('at-cmd').focus(); };"
+if old_chip in src:
+    src = src.replace(old_chip, new_chip, 1)
+    changed = True
+
+# 历史点击：self.send() -> self.Q('at-cmd').focus()
+old_hist = "self.Q('at-cmd').value = ev.target.getAttribute('data-cmd');\n\t\t\t\tself.send();"
+new_hist = "self.Q('at-cmd').value = ev.target.getAttribute('data-cmd');\n\t\t\t\tself.Q('at-cmd').focus();"
+if old_hist in src:
+    src = src.replace(old_hist, new_hist, 1)
+    changed = True
+
+if changed:
+    open(path, 'w').write(src)
+    print("  chip/历史点击改为仅填入（不自动发送）")
+else:
+    print("  点击行为已是最新（仅填入）")
+PYEOF
+fi
+
 echo ""
 echo "=========================================="
 echo "  全部完成！"
