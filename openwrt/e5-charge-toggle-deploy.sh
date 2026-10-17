@@ -21,12 +21,13 @@ set -eu
 
 CHARGE_MODE=/usr/libexec/e5-charge-mode
 SETTINGS_JS=/www/luci-static/resources/view/mu300/settings.js
+AT_JS=/www/luci-static/resources/view/mu300/at.js
 CONFIG_FILE=/etc/config/unisoc_modem
 BAK='.bak'
 
 revert() {
     echo "=== Reverting E5 charge-screen toggle ==="
-    for f in "$CHARGE_MODE" "$SETTINGS_JS" "$CONFIG_FILE"; do
+    for f in "$CHARGE_MODE" "$SETTINGS_JS" "$CONFIG_FILE" /www/luci-static/resources/view/mu300/at.js; do
         if [ -f "$f$BAK" ]; then
             cp "$f$BAK" "$f"
             echo "restored: $f"
@@ -124,8 +125,42 @@ print("patched: " + path)
 PYEOF
 fi
 
+# 5. Patch at.js: add IMEI read/write commands with Chinese descriptions
+if [ -f "$AT_JS" ]; then
+    if [ -f "$AT_JS$BAK" ] && ! grep -q 'SPIMEI' "$AT_JS$BAK" 2>/dev/null; then
+        # Backup predates our IMEI change; refresh it from the live (unpatched) file
+        cp "$AT_JS" "$AT_JS$BAK"
+    fi
+    if [ ! -f "$AT_JS$BAK" ]; then
+        cp "$AT_JS" "$AT_JS$BAK"
+        echo "backed up: $AT_JS"
+    fi
+    if grep -q 'SPIMEI' "$AT_JS" 2>/dev/null; then
+        echo "at.js: already patched"
+    else
+        python3 - "$AT_JS" <<'PYEOF'
+import sys
+path = sys.argv[1]
+src = open(path, 'r').read()
+
+old = "\t\t{ cmd: 'AT+CNUM', desc: '查询本机号码（需运营商写入 SIM）' },"
+new = (
+    "\t\t{ cmd: 'AT+CNUM', desc: '查询本机号码（需运营商写入 SIM）' },\n"
+    "\t\t{ cmd: 'AT+SPIMEI=0,\"869470071557511\"', desc: '设置卡槽 0 的 IMEI 为 869470071557511（写入 NV 持久保存）' },\n"
+    "\t\t{ cmd: 'AT+SPIMEI?', desc: '查询当前已写入的 IMEI（含两个卡槽的 IMEI）' }"
+)
+if old in src:
+    src = src.replace(old, new, 1)
+    open(path, 'w').write(src)
+    print("patched: " + path)
+else:
+    print("at.js: anchor not found, skipping (file may already be patched differently)")
+PYEOF
+    fi
+fi
+
 echo ""
 echo "=== Done! ==="
-echo "Toggle: LuCI → 设置 → 适配设置 → 充电模式 → 跳过充电界面"
-echo "Enable it and Save to skip the charging screen on next charger boot."
+echo "Charge skip: LuCI → 设置 → 适配设置 → 充电模式 → 跳过充电界面"
+echo "AT page: refresh to see new IMEI chips with tooltips in 基础 group"
 echo "To revert: sh $0 --revert"
