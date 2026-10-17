@@ -100,14 +100,28 @@ else
     echo "added UCI: unisoc_modem.charger.skip_screen=0"
 fi
 
-# 4. Patch settings.js: add the toggle section
+# 4. Patch settings.js: add the toggle section (use python3, not sed)
 if grep -q 'skip_screen' "$SETTINGS_JS" 2>/dev/null; then
     echo "settings.js: already patched"
 else
-    # Insert before "return m.render();" — use sed for reliability
-    INSERT='\\t\\t// Charging screen toggle\\n\\t\\tvar cs = m.section(form.NamedSection, '\\''charger'\\'', '\\''charger'\\'', '\\''充电模式'\\'');\\n\\t\\tcs.addremove = false;\\n\\t\\tvar so = cs.option(form.Flag, '\\''skip_screen'\\'', '\\''跳过充电界面'\\'');\\n\\t\\tso.description = '\\''开启后，插充电器开机时不再显示充电界面，直接进入系统。与安卓侧跳过充电模式的 Magisk 模块效果一致。关闭则恢复长按电源键 1.5 秒启动的行为。'\\'';\\n\\n'
-    sed -i "/return m.render();/i\\${INSERT}" "$SETTINGS_JS"
-    echo "patched: $SETTINGS_JS"
+    python3 - "$SETTINGS_JS" <<'PYEOF'
+import sys
+path = sys.argv[1]
+src = open(path, 'r').read()
+
+toggle = """
+		// Charging screen toggle
+		var cs = m.section(form.NamedSection, 'charger', 'charger', t('充电模式'));
+		cs.addremove = false;
+		var so = cs.option(form.Flag, 'skip_screen', t('跳过充电界面'));
+		so.description = t('开启后，插充电器开机时不再显示充电界面，直接进入系统。与安卓侧跳过充电模式的 Magisk 模块效果一致。关闭则恢复长按电源键 1.5 秒启动的行为。');
+
+"""
+
+src = src.replace("\t\treturn m.render();", toggle + "\t\treturn m.render();", 1)
+open(path, 'w').write(src)
+print("patched: " + path)
+PYEOF
 fi
 
 echo ""
